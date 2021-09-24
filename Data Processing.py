@@ -7,10 +7,6 @@ from nltk.metrics.scores import (precision, recall)
 
 
 # data processing
-# I want to pair each data point to its class
-#[(d, class), (d2, class)]
-#[("I love this", 'pos'), ]
-
 labeled_reviews = []
 # iterate through all file
 for c in ('pos', 'neg'):
@@ -20,7 +16,7 @@ for c in ('pos', 'neg'):
         if file.endswith(".txt"):
             file_path = f"{path}/{file}"
             with open(file_path, 'r') as f:
-                labeled_reviews.append((f.read().lower(), c))
+                labeled_reviews.append((f.read().lower(), c))       #[("I love this", 'pos'), ]
 print(labeled_reviews)
 
 tokens = set(word for words in labeled_reviews for word in word_tokenize(words[0]))
@@ -35,37 +31,36 @@ for x in labeled_reviews:
     data.append((dict, x[1]))   # ({"go": False, "love": True...}. "pos")
 # data = [({word: (word in word_tokenize(x[0])) for word in tokens}, x[1]) for x in labeled_reviews]
 
-random.shuffle(data)                    # randomize the order
-training = data[0:(int)(len(data)/2)]   # split into training and testing
-testing = data[(int)(len(data)/2):]
+random.shuffle(data)
+# 10-fold cross validation
+for i in range(10):
+    print()
+    begin = (int)(len(data)*(i/10))
+    end = (int)(len(data)*((i+1)/10))
+    testing = data[begin:end]
+    training = data[0:begin] + data[end:]
 
-classifier = nltk.NaiveBayesClassifier.train(training)
-# most informative features found in the classifier
-classifier.show_most_informative_features()
+    classifier = nltk.NaiveBayesClassifier.train(training)
+    # classifier.show_most_informative_features()
 
-# construct two dictionaries
-# one for the original label
-# one for the classifier label
-# calculate the % of TP and Fp
+    # construct orig label and classifier dictionaries
+    truesets = collections.defaultdict(set)
+    classifiersets = collections.defaultdict(set)
 
-truesets = collections.defaultdict(set)
-classifiersets =  collections.defaultdict(set)
-# you want to look at precision and recall in both training anf testing
-# if your performnace is really good in training but horrible in testing
-# that means your model is overfitted
-#
-# for i, (doc, label) in enumerate(testing):
-#   #run your classifier over testing dataset to see the peromance
-#   truesets[label].add(i)
-#   observed = classifier.classify(doc)
-#   classifiersets[observed].add(i)
-#
-# print(truesets)
-# print(classifiersets)
-# # [1, 3, 4, 5, 19, 45]
-# # [2, 3, 4, 19, 25, 40]
-#
-# pos_precision = precision(truesets['pos'], classifiersets['pos'])
-# neg_precision = precision(truesets["neg"], classifiersets["neg"])
-# print(pos_precision)
-# print(neg_precision)
+    # run your classifier over testing dataset to see the performance
+    for j, (doc, label) in enumerate(testing):
+      truesets[label].add(j)
+      observed = classifier.classify(doc)
+      classifiersets[observed].add(j)
+
+    pos_precision = precision(truesets['pos'], classifiersets['pos'])
+    neg_precision = precision(truesets["neg"], classifiersets["neg"])
+    print('k =', i+1)
+    print('pos_precision:', pos_precision)
+    print('neg_precision:', neg_precision)
+
+    pos_recall = recall(truesets['pos'], classifiersets['pos'])
+    neg_recall = recall(truesets["neg"], classifiersets["neg"])
+    print('pos_recall:', pos_recall)
+    print('neg_recall:', neg_recall)
+
