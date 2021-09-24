@@ -58,11 +58,11 @@ for x in labeled_reviews:
     data.append((dict, x[1]))   # ({"go": False, "love": True...}. "pos")
 # data = [({word: (word in word_tokenize(x[0])) for word in tokens}, x[1]) for x in labeled_reviews]
 
-
 random.shuffle(data)
-pos_precisions, neg_precisions = []
-pos_recall = []
-neg_recall = []
+pos_precisions = []
+neg_precisions = []
+pos_recalls = []
+neg_recalls = []
 # 10-fold cross validation
 for i in range(10):
     print()
@@ -84,15 +84,22 @@ for i in range(10):
       observed = classifier.classify(doc)
       classifiersets[observed].add(j)
 
-    pos_precision = precision(truesets['pos'], classifiersets['pos'])
-    neg_precision = precision(truesets["neg"], classifiersets["neg"])
+    pos_precisions.append(precision(truesets['pos'], classifiersets['pos']))
+    neg_precisions.append(precision(truesets["neg"], classifiersets["neg"]))
 
     print('k =', i+1)
-    print('pos_precision:', pos_precision)
-    print('neg_precision:', neg_precision)
+    print('pos_precision:', pos_precisions[-1])
+    print('neg_precision:', neg_precisions[-1])
 
-    pos_recall = recall(truesets['pos'], classifiersets['pos'])
-    neg_recall = recall(truesets["neg"], classifiersets["neg"])
-    print('pos_recall:', pos_recall)
-    print('neg_recall:', neg_recall)
+    pos_recalls.append(recall(truesets['pos'], classifiersets['pos']))
+    neg_recalls.append(recall(truesets["neg"], classifiersets["neg"]))
+    print('pos_recall:', pos_recalls[-1])
+    print('neg_recall:', neg_recalls[-1])
+
+print('\naverage pos precision:', sum(pos_precisions)/len(pos_precisions))
+print('average neg precision:', sum(neg_precisions)/len(neg_precisions))
+print('\naverage pos recall:', sum(pos_recalls)/len(pos_recalls))
+print('average neg recalls:', sum(neg_recalls)/len(neg_recalls))
+
+
 
