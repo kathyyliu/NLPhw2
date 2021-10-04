@@ -57,7 +57,7 @@ def data_processing(verbose=False):
                 dict[stemmed] = is_in
         data.append((dict, x[1]))               # ({"go": False, "love": True...}. "pos")
     # data = [({word: (word in word_tokenize(x[0])) for word in tokens}, x[1]) for x in labeled_reviews]
-    return data
+    return data, ordered_ratings
 
 
 # returns dict of list of ratings for pos, neg, according to given order of reviews
@@ -83,13 +83,14 @@ def order_ratings(pos_order, neg_order):
 
 # given data, returns all needed datasets for k-fold as list of (training set, testing set)
 def tenfold_sets(data, k):
-    random.shuffle(data)
+    shuffled = data.copy()
+    random.shuffle(shuffled)
     datasets = []
     for i in range(k):
-        begin = (int)(len(data)*(i/k))
-        end = (int)(len(data)*((i+1)/k))
-        training = data[0:begin] + data[end:]
-        testing = data[begin:end]
+        begin = (int)(len(shuffled) * (i / k))
+        end = (int)(len(shuffled) * ((i + 1) / k))
+        training = shuffled[0:begin] + shuffled[end:]
+        testing = shuffled[begin:end]
         datasets.append((training, testing))
     return datasets
 
@@ -99,6 +100,7 @@ def naive_bayes(datasets, k, verbose=False):
     neg_precisions = []
     pos_recalls = []
     neg_recalls = []
+    print('\n######### Naive Bayes #########')
     # k-fold train and test
     for i in range(k):
         training = datasets[i][0]
@@ -132,18 +134,21 @@ def naive_bayes(datasets, k, verbose=False):
     print('\naverage pos recall:', sum(pos_recalls)/len(pos_recalls))
     print('average neg recalls:', sum(neg_recalls)/len(neg_recalls))
 
+    return classifier
+
 
 def logistic_regression(datasets, k, verbose=False):
     pos_precisions = []
     neg_precisions = []
     pos_recalls = []
     neg_recalls = []
+    print('\n######### Logistic Regression #########\n')
     # k-fold train and test
     for i in range(k):
         training = datasets[i][0]
         testing = datasets[i][1]
         classifier = MaxentClassifier.train(training, algorithm='GIS', max_iter=10)
-        classifier.show_most_informative_features(10)
+        # classifier.show_most_informative_features(10)
 
         # construct orig label and classifier dictionaries
         true_sets = collections.defaultdict(set)
@@ -158,9 +163,6 @@ def logistic_regression(datasets, k, verbose=False):
         for c in ('pos', 'neg'):
             if not classifier_sets[c]:
                 classifier_sets[c] = set()
-
-        print(type(classifier_sets['pos']), type(classifier_sets['neg']))
-        print(type(true_sets['pos']), type(true_sets['neg']))
 
         pos_precisions.append(precision(true_sets['pos'], classifier_sets['pos']))
         neg_precisions.append(precision(true_sets["neg"], classifier_sets["neg"]))
@@ -179,11 +181,29 @@ def logistic_regression(datasets, k, verbose=False):
     print('average neg recalls:', sum(neg_recalls) / len(neg_recalls))
 
 
+def find_fake_reviews(model, testing, rating):
+
+    fake = []
+    for i in range(len(testing)):
+        observed = model.classify(testing[i][0])
+        # review fake if rating is 1 or 2 and prediction is pos, or 4,5 and neg
+        if (float(rating[i]) < 3 and observed == 'pos') or (float(rating[i]) > 3 and observed == 'neg'):
+            fake.append(testing[i])
+    return fake
+
+
 def main():
     k = 4
-    datasets = tenfold_sets(data_processing(True), k)
-    naive_bayes(datasets, k, True)
+    data, ratings = data_processing(True)
+    datasets = tenfold_sets(data, k)
+    model = naive_bayes(datasets, k, True)
     logistic_regression(datasets, k, True)
+
+    # shuffle data and respective ratings in same order
+    temp = list(zip(data, ratings['pos'] + ratings['neg']))
+    random.shuffle(temp)
+    data, ratings = zip(*temp)
+    print('\nfake reviews:\n', find_fake_reviews(model, data[:200], ratings[:200]))
 
 
 if __name__ == "__main__":
