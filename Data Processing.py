@@ -13,19 +13,21 @@ from nltk.classify import MaxentClassifier
 # reads files, tokenizes, del punct, del stopwords, stems, makes feat table
 def data_processing(verbose=False):
     labeled_reviews = []
-    # Iterate through all files
+    nums = {'pos':[], 'neg':[]}
+    # Iterate through all review files
     for c in ('pos', 'neg'):
         path = "./Homework2-Data/" + c
         i = 0
         for file in os.listdir(path):
-            # Check whether file is in text format or not
             if file.endswith(".txt"):
+                nums[c].append(int(file[file.index('_') + 1:file.index('.')]))          # get file number to match to rating
                 file_path = f"{path}/{file}"
                 with open(file_path, 'r') as f:
                     labeled_reviews.append((f.read().lower(), c))       #[("I love this", 'pos'), ]
                 i += 1
             if i >= 100:
                 break
+    ordered_ratings = order_ratings(nums['pos'], nums['neg'])
     # tokenize and remove punctuation
     stopword = stopwords.words("english")
     tokens = set()
@@ -46,7 +48,7 @@ def data_processing(verbose=False):
     for x in labeled_reviews:
         i += 1
         if verbose:
-            print(f'{i}/{len(labeled_reviews)}')                  # this takes like 7 min
+            print(f'{i}/{len(labeled_reviews)}')
         dict = {}
         for word in tokens:
             is_in = word in x[0]
@@ -56,6 +58,27 @@ def data_processing(verbose=False):
         data.append((dict, x[1]))               # ({"go": False, "love": True...}. "pos")
     # data = [({word: (word in word_tokenize(x[0])) for word in tokens}, x[1]) for x in labeled_reviews]
     return data
+
+
+# returns dict of list of ratings for pos, neg, according to given order of reviews
+def order_ratings(pos_order, neg_order):
+    ordered_ratings = {'pos':[], 'neg':[]}
+    for c in ('positive', 'negative'):
+        path = './Homework2-Data/ratings/' + c + '.txt'
+        c_ratings = []
+        with open(path, 'r') as f:
+            while True:
+                line = f.readline()
+                if not line:
+                    break
+                rating = line[line.index(' ')+1:].strip()    # slice for only rating
+                c_ratings.append(rating)
+        c_abrv = c[:3]
+        order = pos_order if c_abrv == 'pos' else neg_order
+        # grabs only the ratings according to file number in the given order
+        for num in order:
+            ordered_ratings[c_abrv].append(c_ratings[num-1])
+    return ordered_ratings
 
 
 # given data, returns all needed datasets for k-fold as list of (training set, testing set)
@@ -119,7 +142,7 @@ def logistic_regression(datasets, k, verbose=False):
     for i in range(k):
         training = datasets[i][0]
         testing = datasets[i][1]
-        classifier = MaxentClassifier.train(training, algorithm='GIS', max_iter=3)
+        classifier = MaxentClassifier.train(training, algorithm='GIS', max_iter=10)
         classifier.show_most_informative_features(10)
 
         # construct orig label and classifier dictionaries
@@ -159,7 +182,7 @@ def logistic_regression(datasets, k, verbose=False):
 def main():
     k = 4
     datasets = tenfold_sets(data_processing(True), k)
-    # naive_bayes(datasets, k, True)
+    naive_bayes(datasets, k, True)
     logistic_regression(datasets, k, True)
 
 
